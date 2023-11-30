@@ -16,7 +16,6 @@ setup(
         'matplotlib',
         'scipy',
         'PyMCubes',
-        
     ]
 )
 
