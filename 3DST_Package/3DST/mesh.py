@@ -16,7 +16,6 @@ try:
     from typing import Literal
 except ImportError:
     from typing_extensions import Literal
-from .data_process import sort_file_names
 
 def calculate_mesh(
               mesh_anno:list,
@@ -57,14 +56,25 @@ def calculate_mesh(
         raise ValueError(f"Each organ or cell type corresponds to a set of parameters. Please ensure the correspondence and equal length between arg and mesh_anno")
 
     ## 01. get all point cloud.
-    xli, yli, zli, tyli,sc_xyz = read_and_parse(spatial_regis=spatial_key,anno=celltype,h5ad_path=h5ad_path,adata_list=adata_list,sc_xyz=sc_xyz)
+    xli, yli, zli, tyli,sc_xyz = read_and_parse(spatial_regis = spatial_key,
+                                                anno = celltype,
+                                                adata_list = adata_list,
+                                                sc_xyz = sc_xyz)
 
     ## 02. calculate mesh of each or given celltype.
     tdg_li = {}
     for i,(x,y) in enumerate(zip(mesh_anno, arg)):
         ## calcute mesh
         # print(y[])
-        tdg_li[x] = Mesh(xli, yli, zli, tyli, ty_name=x, eps_val=y[0], min_samples=y[1], thresh_num=y[2])
+        tdg_li[x] = Mesh(xli = xli,
+                         yli = yli,
+                         zli = zli,
+                         tyli = tyli,
+                         ty_name = x,
+                         eps_val = y[0],
+                         min_samples = y[1], 
+                         thresh_num = y[2])
+        
         mesh,_ = tdg_li[x].create_mesh_of_type(sc_xyz=sc_xyz,method=method, mc_scale_factor=y[3])
         ## uniform and smooth mesh
         mesh= tdg_li[x].uniform_re_mesh_and_smooth(mesh)
@@ -703,7 +713,7 @@ class Mesh():
         return scatter_li
 
 
-def read_and_parse(spatial_regis:str,anno:str, h5ad_path:Optional[str] = None, adata_list:Optional[list] = None, sc_xyz:Optional[list] = None,):
+def read_and_parse(spatial_regis:str,anno:str, adata_list:Optional[list] = None, sc_xyz:Optional[list] = None,):
     """
     Get x,y,z,anno columns as mesh input.
 
@@ -722,17 +732,10 @@ def read_and_parse(spatial_regis:str,anno:str, h5ad_path:Optional[str] = None, a
     yli = []
     zli = []
     tyli = []
-    if h5ad_path:
-        fnames =sort_file_names(file_path=h5ad_path,suffix='.h5ad')
-        adata_list = []
-        for fname in fnames:
-            path = os.path.join(h5ad_path, fname)
-            adata = anndata.read(path)
-            adata_list.append(adata)
-    elif adata_list:
+    if adata_list:
         adata_list = adata_list
     else:  
-        raise ValueError(f"h5ad_path and adata_list should have at least one that is not None.")
+        raise ValueError(f"adata_list should have at least one that is not None.")
     for adata in adata_list:
         if adata.uns['data_unit']['binsize'] == 'cellbin':
             binsize = 10
