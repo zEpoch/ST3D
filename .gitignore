@@ -2,3 +2,4 @@
 /dist
 .pypirc
 setup.cfg
+/ST3D.egg-info
