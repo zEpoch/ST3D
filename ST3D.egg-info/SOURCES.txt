@@ -1,0 +1,12 @@
+LICENSE
+README.md
+setup.cfg
+setup.py
+ST3D/ST3D.py
+ST3D/__init__.py
+ST3D/mesh.py
+ST3D/plot.py
+ST3D.egg-info/PKG-INFO
+ST3D.egg-info/SOURCES.txt
+ST3D.egg-info/dependency_links.txt
+ST3D.egg-info/top_level.txt

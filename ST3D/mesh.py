@@ -1,3 +1,5 @@
+'''
+
 import os
 import gc
 import re
@@ -773,3 +775,4 @@ def read_and_parse(spatial_regis:str,anno:str, adata_list:Optional[list] = None,
         gc.collect()
     
     return xli,yli,zli,tyli,sc_xyz
+'''
