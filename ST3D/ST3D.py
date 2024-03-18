@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
 import pyvista as pv
+from scipy.spatial import Delaunay
 
 class ST_3D:
     def __init__(self,
@@ -103,7 +104,6 @@ class ST_3D:
             for i in annotation_labels:
                 adata_i = self.adata[self.adata.obs[self.annotation_label] == i].copy()
                 color_i = colors[annotation_labels.index(i)]
-                print(color_i)
                 plt_points = k3d.points(positions = adata_i.obsm[self.position_label].astype('float32'),
                                         colors = [int(color_i[1:], 16) for i in range(adata_i.shape[0])],
                                         point_sizes  = point_size,
@@ -158,14 +158,21 @@ class ST_3D:
         pass
     
     def points_rotation(self, 
-                        save_path: str, 
+                        save_path: str = './rotation.mp4', 
                         position_label: str = '3d_align_spatial',
                         annotation_label: Optional[str] = None,
                         color_annotation_dict_label: Optional[str] = None,
                         color_annotation_dict: Optional[dict] = None,
+                        size: Optional[float] = 20,
+                        animation_format: Optional[str] = None
                         ):
         '''
-        
+        save_path: str, the path to save the video
+        position_label: str, the label of the 3d points in adata.obsm
+        annotation_label: Optional[str], the label of the annotation in adata.obs
+        color_annotation_dict_label: Optional[str], the label of the color_annotation_dict in adata.uns
+        color_annotation_dict: Optional[dict], the color_annotation_dict
+        size: Optional[float], the size of the points
         '''
         if position_label:
             self._get_position_label(position_label)
@@ -183,11 +190,10 @@ class ST_3D:
             self._get_color_annotation_dict_label(color_annotation_dict_label)
         else:
             self.color_annotation_dict = None
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        
+  
         points = self.adata.obsm[self.position_label]
-        annotation_labels = self.adata.obs[self.annotation_label].tolist()
+        if self.annotation_label:
+            annotation_labels = self.adata.obs[self.annotation_label].tolist()
         
         if self.annotation_label and self.color_annotation_dict:
             colors = [self.color_annotation_dict[i] for i in annotation_labels]
@@ -196,8 +202,12 @@ class ST_3D:
         else:
             colors = None
         
+        sizes =  [size]*len(points)
         
-        sc = ax.scatter(points[:, 0], points[:, 1], points[:, 2], c = colors)
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d', facecolor='black')
+        
+        sc = ax.scatter(points[:, 0], points[:, 1], points[:, 2], c = colors, s = sizes)
 
         x_max = max(points[:, 0])+ 0.5 * max(points[:, 0])
         y_max = max(points[:, 1])+ 0.5 * max(points[:, 1])
@@ -216,7 +226,7 @@ class ST_3D:
             points_rot = np.dot(points, R.T)
 
             # 绘制旋转后的点云
-            sc = ax.scatter(points_rot[:, 0], points_rot[:, 1], points_rot[:, 2])
+            sc = ax.scatter(points_rot[:, 0], points_rot[:, 1], points_rot[:, 2], c = colors, s = sizes)
 
             ax.set_xlim([-x_max, x_max])
             ax.set_ylim([-y_max, y_max])
@@ -224,14 +234,21 @@ class ST_3D:
             
             ax.set_axis_off()
             
-            return sc
+            return sc,
 
         # 创建动画
         ani = animation.FuncAnimation(fig, update, frames=np.arange(0, 360, 1), fargs=(points, sc), blit=True)
-        writervideo = animation.PillowWriter(fps=180) 
-        ani.save('increasingStraightLine.gif', writer=writervideo) 
-        plt.show()
-
+        
+        if animation_format == 'mp4':
+            writervideo = animation.FFMpegWriter(fps=180) 
+            ani.save(save_path, writer=writervideo, savefig_kwargs={'facecolor': 'black'}) 
+        elif animation_format == 'gif':
+            writergif = animation.PillowWriter(fps=180)
+            ani.save(save_path, writer=writergif, savefig_kwargs={'facecolor': 'black'}) 
+        else:
+            writergif = animation.PillowWriter(fps=180)
+            ani.save(save_path, writer=writergif, savefig_kwargs={'facecolor': 'black'}) 
+        
     def caculate_mesh(self,
                       mesh_file: str,
                       position_label: str = '3d_align_spatial',
@@ -272,7 +289,9 @@ class ST_3D:
         else:
             colors = None
         
-        cloud = pv.PolyData(points)
+        tri = Delaunay(points)
+        
+        cloud = pv.PolyData(points, np.c_[np.full(len(tri.simplices), 3), tri.simplices])
         mesh = cloud.delaunay_3d()
         if colors:
             rgb_colors = [to_rgb(c) for c in colors]
