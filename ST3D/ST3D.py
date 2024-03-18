@@ -10,11 +10,13 @@ import pandas as pd
 from k3d.colormaps import matplotlib_color_maps
 import matplotlib.pyplot as plt
 from matplotlib.colors import rgb2hex
+from matplotlib.colors import to_rgb
 import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
+import pyvista as pv
 
 class ST_3D:
     def __init__(self,
@@ -45,10 +47,8 @@ class ST_3D:
     def _get_save_path(self, save_path: str):
         self.save_path = save_path
     
-
     def _generate_random_colors(self, n: int):
         return ['#' + ''.join(random.choices('0123456789ABCDEF', k=6)) for _ in range(n)]
-    
     
     def plot_cloud_point(self,
                          color_annotation_dict: Optional[dict] = None,
@@ -128,7 +128,6 @@ class ST_3D:
                 fp.write(plots.get_snapshot())
         return plots
         
-
     def plot_gene_cloud_point(self, gene_name: str):
         adata = self.adata[:,self.adata.var_names==gene_name]
         adata = adata[adata.obs['region'] != 'meninges']
@@ -203,7 +202,7 @@ class ST_3D:
         x_max = max(points[:, 0])+ 0.5 * max(points[:, 0])
         y_max = max(points[:, 1])+ 0.5 * max(points[:, 1])
         z_max = max(points[:, 2])+ 0.5 * max(points[:, 2])
-        
+        ax.set_axis_off()
         # 更新函数
         def update(num, points, sc):
             ax.cla()  # 清除当前的轴
@@ -231,9 +230,6 @@ class ST_3D:
         ani = animation.FuncAnimation(fig, update, frames=np.arange(0, 360, 1), fargs=(points, sc), blit=True)
         writervideo = animation.PillowWriter(fps=180) 
         ani.save('increasingStraightLine.gif', writer=writervideo) 
-        # ani.save('animation.mp4', writer='ffmpeg', fps=60)
-        # 请注意，保存动画需要ffmpeg库。如果你没有安装这个库，你可以使用以下命令来安装
-        # sudo apt-get install ffmpeg
         plt.show()
 
     def caculate_mesh(self,
@@ -242,16 +238,49 @@ class ST_3D:
                       annotation_label: Optional[str] = None,
                       color_annotation_dict_label: Optional[str] = None,
                       color_annotation_dict: Optional[dict] = None,
+                      mesh_name:Optional[str] = 'mesh.vtk'
                       ):
         '''
         caculate mesh from 3d points
         
         '''
         
+        if position_label:
+            self._get_position_label(position_label)
+        else:
+            assert False, 'position_label is None'
+            
+        if annotation_label:
+            self._get_annotation_label(annotation_label)
+        else:
+            self.annotation_label = None
         
+        if color_annotation_dict:
+            self._get_color_annotation_dict(color_annotation_dict)
+        elif color_annotation_dict_label:
+            self._get_color_annotation_dict_label(color_annotation_dict_label)
+        else:
+            self.color_annotation_dict = None
         
+        points = self.adata.obsm[self.position_label]
+        annotation_labels = self.adata.obs[self.annotation_label].tolist()
         
-        pass
+        if self.annotation_label and self.color_annotation_dict:
+            colors = [self.color_annotation_dict[i] for i in annotation_labels]
+        elif self.annotation_label:
+            colors = self._generate_random_colors(len(annotation_labels))
+        else:
+            colors = None
+        
+        cloud = pv.PolyData(points)
+        mesh = cloud.delaunay_3d()
+        if colors:
+            rgb_colors = [to_rgb(c) for c in colors]
+            mesh.point_data["colors"] = rgb_colors
+        
+        mesh.save(mesh_name)
+        
+        return None
     
     
         '''
