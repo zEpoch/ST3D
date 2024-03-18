@@ -18,6 +18,7 @@ import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
 import pyvista as pv
 from scipy.spatial import Delaunay
+import trimesh
 
 class ST_3D:
     def __init__(self,
@@ -240,22 +241,21 @@ class ST_3D:
         ani = animation.FuncAnimation(fig, update, frames=np.arange(0, 360, 1), fargs=(points, sc), blit=True)
         
         if animation_format == 'mp4':
-            writervideo = animation.FFMpegWriter(fps=180) 
-            ani.save(save_path, writer=writervideo, savefig_kwargs={'facecolor': 'black'}) 
+            writervideo = animation.FFMpegWriter(fps=120) 
+            ani.save(save_path, writer=writervideo, dpi=1200, savefig_kwargs={'facecolor': 'black'}) 
         elif animation_format == 'gif':
-            writergif = animation.PillowWriter(fps=180)
-            ani.save(save_path, writer=writergif, savefig_kwargs={'facecolor': 'black'}) 
+            writergif = animation.PillowWriter(fps=120)
+            ani.save(save_path, writer=writergif, dpi=1200, savefig_kwargs={'facecolor': 'black'}) 
         else:
-            writergif = animation.PillowWriter(fps=180)
-            ani.save(save_path, writer=writergif, savefig_kwargs={'facecolor': 'black'}) 
+            writergif = animation.PillowWriter(fps=120)
+            ani.save(save_path, writer=writergif, dpi=1200, savefig_kwargs={'facecolor': 'black'}) 
         
     def caculate_mesh(self,
-                      mesh_file: str,
+                      save_path: str,
                       position_label: str = '3d_align_spatial',
                       annotation_label: Optional[str] = None,
                       color_annotation_dict_label: Optional[str] = None,
                       color_annotation_dict: Optional[dict] = None,
-                      mesh_name:Optional[str] = 'mesh.vtk'
                       ):
         '''
         caculate mesh from 3d points
@@ -288,7 +288,7 @@ class ST_3D:
             colors = self._generate_random_colors(len(annotation_labels))
         else:
             colors = None
-        
+        '''
         tri = Delaunay(points)
         
         cloud = pv.PolyData(points, np.c_[np.full(len(tri.simplices), 3), tri.simplices])
@@ -297,11 +297,77 @@ class ST_3D:
             rgb_colors = [to_rgb(c) for c in colors]
             mesh.point_data["colors"] = rgb_colors
         
-        mesh.save(mesh_name)
+        mesh.save(save_path)
+        '''
         
+        cloud = trimesh.points.PointCloud(points)
+        mesh = cloud.convex_hull
+        if self.annotation_label and self.color_annotation_dict:
+            colors = [self.color_annotation_dict[i] for i in annotation_labels]
+            mesh.visual.vertex_colors = colors
+        mesh.export(save_path)
         return None
     
     
+    
+    
+    def points_mesh_rotaion(self,
+                            mesh_path: str,
+                            position_label: str = '3d_align_spatial',
+                            annotation_label: Optional[str] = None,
+                            color_annotation_dict: Optional[dict] = None,
+                            color_annotation_dict_label: Optional[str] = None,
+                            save_path: str = './rotation.gif',):
+        '''
+        
+        '''
+        if position_label:
+            self._get_position_label(position_label)
+        else:
+            assert False, 'position_label is None'
+            
+        if annotation_label:
+            self._get_annotation_label(annotation_label)
+        else:
+            self.annotation_label = None
+        
+        if color_annotation_dict:
+            self._get_color_annotation_dict(color_annotation_dict)
+        elif color_annotation_dict_label:
+            self._get_color_annotation_dict_label(color_annotation_dict_label)
+        else:
+            self.color_annotation_dict = None
+  
+        points = self.adata.obsm[self.position_label]
+        if self.annotation_label:
+            annotation_labels = self.adata.obs[self.annotation_label].tolist()
+        
+        if self.annotation_label and self.color_annotation_dict:
+            colors = [self.color_annotation_dict[i] for i in annotation_labels]
+        elif self.annotation_label:
+            colors = self._generate_random_colors(len(annotation_labels))
+        else:
+            colors = None
+        
+        mesh = trimesh.load_mesh(mesh_path)
+        
+        points = self.adata.obsm[position_label]
+        
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='r', marker='o')
+        x, y, z = np.array_split(mesh.vertices, 3, axis=1)
+        ax.plot_trisurf(x.flatten(), y.flatten(), z.flatten(), triangles=mesh.faces)
+        def update(num, ax):
+            ax.view_init(elev=30., azim=num)
+        ani = animation.FuncAnimation(fig, update, frames=range(0, 360, 1), fargs=(ax,))
+        
+        writergif = animation.PillowWriter(fps=120)
+        ani.save(save_path, writer=writergif, dpi=1200, savefig_kwargs={'facecolor': 'black'})
+        
+        
+        
+        
         '''
         import numpy as np
         import matplotlib.pyplot as plt
